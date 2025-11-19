@@ -1,48 +1,55 @@
 """
-Database Schemas
+Database Schemas for PrintZest
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model represents a MongoDB collection. The collection name is the
+lowercased class name.
 """
-
-from pydantic import BaseModel, Field
-from typing import Optional
-
-# Example schemas (replace with your own):
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List, Literal
+from datetime import datetime
 
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
     name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    phone: str = Field(..., description="E.164 phone number or local format validated in backend")
+    email: Optional[EmailStr] = Field(None, description="Email (admins only)")
+    role: Literal["customer", "admin"] = Field("customer")
+    password_hash: Optional[str] = Field(None, description="SHA256 for admins")
+    is_active: bool = Field(True)
 
 class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    title: str
+    description: Optional[str] = None
+    price: float = Field(..., ge=0)
+    image_url: Optional[str] = None
+    in_stock: bool = True
 
-# Add your own schemas here:
-# --------------------------------------------------
+class OrderItem(BaseModel):
+    product_id: str
+    title: str
+    price: float
+    size: Literal["S","M","L"]
+    quantity: int = Field(1, ge=1)
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+class Order(BaseModel):
+    user_id: str
+    items: List[OrderItem]
+    payment_mode: Literal["Online", "COD"]
+    delivery_location: str
+    status: Literal["pending","paid","processing","shipped","delivered","cancelled"] = "pending"
+    total_amount: float
+
+class Settings(BaseModel):
+    brand_name: str = "PrintZest"
+    logo_data_url: Optional[str] = Field(None, description="Base64 data URL of logo")
+    qr_data_url: Optional[str] = Field(None, description="Base64 data URL of payment QR")
+    welcome_message: Optional[str] = "Quality prints, fast delivery."
+
+class OTP(BaseModel):
+    phone: str
+    code: str
+    expires_at: datetime
+
+class Session(BaseModel):
+    user_id: str
+    token: str
+    created_at: datetime
